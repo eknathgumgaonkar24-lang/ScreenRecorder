@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screen Recorder</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--text:#1a1d21;--muted:#666d78;--line:#e2e5ea;--accent:#2563eb;--danger:#dc2626;--ok:#16a34a;--warn:#d97706}
+  @media (prefers-color-scheme:dark){:root{--bg:#0f1114;--card:#171a1f;--text:#e8eaed;--muted:#9aa1ab;--line:#2a2f36;--accent:#60a5fa;--danger:#f87171;--ok:#4ade80;--warn:#fbbf24}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:680px;margin:0 auto;padding:24px 16px 48px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  label.f{display:flex;flex-direction:column;font-size:13px;color:var(--muted);gap:4px}
+  select{padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:14px}
+  .chk{display:flex;align-items:center;gap:8px;margin:6px 0}
+  #est{font-size:13px;margin:10px 0 0;color:var(--muted)}
+  #q{font-weight:600}
+  .q-good{color:var(--ok)} .q-fair{color:var(--warn)} .q-low{color:var(--danger)}
+  .row{display:flex;gap:10px;margin-top:14px}
+  button{flex:1;padding:11px 14px;border-radius:10px;border:0;font-size:15px;font-weight:600;cursor:pointer}
+  #start{background:var(--accent);color:#fff}
+  #stop{background:var(--danger);color:#fff}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .stats{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;font-size:18px;font-weight:600}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);margin-right:8px;animation:p 1s infinite}
+  @keyframes p{50%{opacity:.25}}
+  .bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:10px 0 6px}
+  .bar>i{display:block;height:100%;width:0;background:var(--ok);transition:width .4s}
+  .small{font-size:13px;color:var(--muted)}
+  video{width:100%;border-radius:8px;background:#000;margin-bottom:10px}
+  a.dl{display:block;text-align:center;text-decoration:none;background:var(--ok);color:#fff;padding:11px;border-radius:10px;font-weight:600}
+  #msg{font-size:13px;margin-top:10px;color:var(--danger);min-height:1em}
+  #msg.ok{color:var(--muted)}
+  .ctl{display:flex;gap:10px;margin:12px 0 4px}
+  .ctl button{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--bg);color:var(--text);border:1px solid var(--line)}
+  .ctl button.muted{background:var(--danger);color:#fff;border-color:var(--danger)}
+  .ctl button:disabled{opacity:.35}
+</style>
+</head>
+<body>
+<main>
+  <h1>Screen + Audio Recorder</h1>
+  <p class="sub">Up to 2 hours · 1080p · 30+ fps · you choose the max file size (up to 750 MB) · runs fully in your browser (Chrome / Edge desktop)</p>
+
+  <section class="card" id="setup">
+    <div class="grid">
+      <label class="f">Max length
+        <select id="dur">
+          <option value="30">30 min</option>
+          <option value="60">60 min</option>
+          <option value="90">90 min</option>
+          <option value="120" selected>120 min (2 h)</option>
+        </select>
+      </label>
+      <label class="f">Max file size
+        <select id="cap">
+          <option value="250">250 MB</option>
+          <option value="500" selected>500 MB</option>
+          <option value="750">750 MB</option>
+        </select>
+      </label>
+      <label class="f">Resolution
+        <select id="res">
+          <option value="1280x720">720p</option>
+          <option value="1920x1080" selected>1080p</option>
+        </select>
+      </label>
+      <label class="f">Frame rate
+        <select id="fps">
+          <option value="30">30 fps</option>
+          <option value="40" selected>40 fps</option>
+          <option value="60">60 fps</option>
+        </select>
+      </label>
+      <label class="f">Content type
+        <select id="hint">
+          <option value="detail" selected>Slides / text / meetings (sharpest)</option>
+          <option value="motion">Video / animation / games</option>
+        </select>
+      </label>
+    </div>
+    <label class="chk"><input type="checkbox" id="sys" checked> Meeting / system audio</label>
+    <label class="chk"><input type="checkbox" id="mic" checked> My microphone</label>
+    <p id="est"></p>
+    <div class="row">
+      <button id="start">● Start recording</button>
+      <button id="stop" disabled>■ Stop &amp; save</button>
+    </div>
+    <div id="msg"></div>
+  </section>
+
+  <section class="card" id="live" hidden>
+    <div class="stats"><span><span class="dot"></span>Recording</span><span id="time">00:00:00</span></div>
+    <div class="ctl">
+      <button id="micBtn" type="button" title="Mute / unmute microphone (M)">🎤 Mic on</button>
+      <button id="sysBtn" type="button" title="Mute / unmute meeting audio (S)">🔊 Meeting audio on</button>
+    </div>
+    <div class="bar"><i id="barfill"></i></div>
+    <div class="small"><span id="size">0 MB</span> recorded · projected final <span id="proj">–</span> · auto-stops at <span id="lim">–</span></div>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <video id="preview" controls></video>
+    <a class="dl" id="dl" download>Download recording</a>
+    <p class="small" id="final"></p>
+  </section>
+
+  <p class="small">Tips: use the <b>Mic</b> and <b>Meeting audio</b> buttons while recording to mute / unmute (shortcuts: <b>M</b> and <b>S</b> when this tab is focused). Keep this tab open while recording (minimizing the window is fine). To capture meeting audio choose <b>Entire screen</b> and tick <b>Also share system audio</b> (Windows). On macOS, system audio works only when sharing a <b>browser tab</b>. Recording stops automatically at the max length or max file size, whichever comes first, and the file is always saved. Bigger size = sharper video: 500 MB for 1 hour is about 1.1 Mbps, 750 MB for 1.5 hours is about 1.0 Mbps.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const MB = 1048576;
+const OVERSHOOT = 1.8;        // Chrome often records ~1.5-2.2x the requested video bitrate on sharp screen content
+let HARD_STOP_MB = 495;       // emergency auto-stop, set from the chosen max file size
+const AUDIO_BPS = 32000;      // Opus 32 kbps is clear for speech
+const MIN_VIDEO_BPS = 120000, MAX_VIDEO_BPS = 8000000;
+
+let micGain = null, sysGain = null, micMuted = false, sysMuted = false;
+let rec, chunks = [], bytes = 0, t0 = 0, timer, ac, wakeLock, streams = [], cfg, stopping = false, lastUrl = null;
+
+function plan(){
+  const secs = +$('dur').value * 60;
+  const cap = +$('cap').value;
+  const totalBps = cap * 0.96 * 8 * MB / secs;                 // leave 4% headroom under the chosen size
+  const v = Math.round(Math.max(MIN_VIDEO_BPS, Math.min(MAX_VIDEO_BPS, (totalBps - AUDIO_BPS) / OVERSHOOT)));
+  return {secs, v, a: AUDIO_BPS, cap, hardMB: Math.floor(cap * 0.99)};
+}
+function fmtMB(b){ return (b / MB).toFixed(1) + ' MB'; }
+function fmtT(s){ s = Math.floor(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60); return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); }
+function msg(t, ok){ const m = $('msg'); m.textContent = t || ''; m.className = ok ? 'ok' : ''; }
+
+function updateEst(){
+  const p = plan();
+  const est = (p.v * OVERSHOOT + p.a) * p.secs / 8;           // expected real size
+  const px = $('res').value === '1920x1080' ? 1920*1080 : 1280*720;
+  const bpp = p.v * OVERSHOOT / (px * +$('fps').value);           // bits per pixel per frame
+  let cls = 'q-good', label = 'Good quality';
+  if(bpp < 0.004){ cls = 'q-low'; label = 'Low – only suitable for static slides/text. Pick a shorter length or 720p/30 fps'; }
+  else if(bpp < 0.012){ cls = 'q-fair'; label = 'Fair – sharp for slides & meetings, soft on fast motion'; }
+  $('est').innerHTML = `Video target ≈ ${Math.round(p.v/1000)} kbps + audio ${p.a/1000} kbps → expect roughly ${fmtMB(est)} for a full ${p.secs/60}-min recording (limit ${p.cap} MB).<br><span id="q" class="${cls}">${label}</span>`;
+}
+['dur','cap','res','fps'].forEach(id => $(id).addEventListener('change', updateEst));
+updateEst();
+
+async function start(){
+  msg('');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || typeof MediaRecorder === 'undefined'){
+    msg('This browser cannot record the screen. Use Chrome or Edge on desktop.'); return;
+  }
+  cfg = plan();
+  HARD_STOP_MB = cfg.hardMB;
+  stopping = false;
+  const [w,h] = $('res').value.split('x').map(Number), fps = +$('fps').value;
+
+  let display;
+  try{
+    display = await navigator.mediaDevices.getDisplayMedia({
+      video: {width:{ideal:w}, height:{ideal:h}, frameRate:{ideal:fps, min:Math.min(30,fps)}},
+      audio: $('sys').checked ? {echoCancellation:false, noiseSuppression:false, autoGainControl:false} : false,
+      systemAudio: 'include',
+      selfBrowserSurface: 'exclude'
+    });
+  }catch(e1){
+    if(e1 && e1.name === 'NotAllowedError' && !/permission denied by system/i.test(e1.message || '')){
+      // user cancelled the picker: do not nag, just reset
+      msg('Screen sharing was cancelled.'); return;
+    }
+    try{
+      display = await navigator.mediaDevices.getDisplayMedia({video:true, audio:$('sys').checked});
+    }catch(e2){
+      const inFrame = window.self !== window.top;
+      msg(`Screen share failed: ${e2.name}${e2.message ? ' – ' + e2.message : ''}. ` +
+        (inFrame ? 'This page is inside a preview frame, which blocks screen capture. Download the file and open it directly in Chrome or Edge (address bar should start with file:///).'
+        : 'Check Chrome/Edge site settings and your OS screen-recording permission (macOS: System Settings > Privacy & Security > Screen Recording > enable Chrome).'));
+      return;
+    }
+  }
+  streams.push(display);
+
+  const vTrack = display.getVideoTracks()[0];
+  try{ vTrack.contentHint = $('hint').value; }catch(e){}   // tells the encoder to favor sharpness (detail) or smoothness (motion)
+
+  let micStream = null;
+  if($('mic').checked){
+    try{
+      micStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+      streams.push(micStream);
+    }catch(e){ msg('Microphone blocked – recording without it.'); }
+  }
+
+  // Mix system audio + mic into one track
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  try{ await ac.resume(); }catch(e){}
+  const dest = ac.createMediaStreamDestination();
+  let hasAudio = false;
+  micGain = sysGain = null; micMuted = sysMuted = false;
+  if(display.getAudioTracks().length){
+    sysGain = ac.createGain();
+    ac.createMediaStreamSource(new MediaStream([display.getAudioTracks()[0]])).connect(sysGain);
+    sysGain.connect(dest); hasAudio = true;
+  }else if($('sys').checked){
+    msg('No system audio was shared. Tick "Also share system audio" in the picker (or share a tab).');
+  }
+  if(micStream){
+    micGain = ac.createGain();
+    ac.createMediaStreamSource(micStream).connect(micGain);
+    micGain.connect(dest); hasAudio = true;
+  }
+  refreshMuteUI();
+
+  const out = [vTrack];
+  if(hasAudio) out.push(dest.stream.getAudioTracks()[0]);
+
+  const mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm']
+    .find(m => MediaRecorder.isTypeSupported(m));
+  chunks = []; bytes = 0;
+  const opts = {mimeType: mime, videoBitsPerSecond: cfg.v};
+  if(hasAudio) opts.audioBitsPerSecond = cfg.a;
+  rec = new MediaRecorder(new MediaStream(out), opts);
+  rec.ondataavailable = e => { if(e.data && e.data.size){ chunks.push(e.data); bytes += e.data.size; } };
+  rec.onstop = finish;
+  rec.onerror = e => { msg('Recorder error: ' + (e.error && e.error.message || 'unknown') + '. Saving what was recorded.'); stop(); };
+  vTrack.addEventListener('ended', stop);   // user clicked "Stop sharing"
+  rec.start(5000);
+
+  await lockScreen();
+  document.addEventListener('visibilitychange', onVis);
+  window.onbeforeunload = e => { e.preventDefault(); e.returnValue = ''; };
+
+  t0 = Date.now();
+  $('lim').textContent = fmtT(cfg.secs) + ' / ' + HARD_STOP_MB + ' MB';
+  $('proj').textContent = '–';
+  $('start').disabled = true; $('stop').disabled = false;
+  ['dur','cap','res','fps','hint','sys','mic'].forEach(id => $(id).disabled = true);
+  $('live').hidden = false; $('result').hidden = true;
+  timer = setInterval(tick, 500);
+}
+
+/* ---- Mute / unmute (works live while recording; muted = silence is recorded, video & sync unaffected) ---- */
+function refreshMuteUI(){
+  const mb = $('micBtn'), sb = $('sysBtn');
+  mb.disabled = !micGain; sb.disabled = !sysGain;
+  mb.classList.toggle('muted', !!micGain && micMuted);
+  sb.classList.toggle('muted', !!sysGain && sysMuted);
+  mb.textContent = !micGain ? '🎤 No mic' : micMuted ? '🔇 Mic muted – click to unmute' : '🎤 Mic on';
+  sb.textContent = !sysGain ? '🔊 No meeting audio' : sysMuted ? '🔇 Meeting audio muted' : '🔊 Meeting audio on';
+}
+function toggleMic(){ if(!micGain) return; micMuted = !micMuted; micGain.gain.value = micMuted ? 0 : 1; refreshMuteUI(); }
+function toggleSys(){ if(!sysGain) return; sysMuted = !sysMuted; sysGain.gain.value = sysMuted ? 0 : 1; refreshMuteUI(); }
+$('micBtn').addEventListener('click', toggleMic);
+$('sysBtn').addEventListener('click', toggleSys);
+document.addEventListener('keydown', e => {
+  if(!rec || rec.state === 'inactive' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(/^(select|input|textarea)$/i.test(e.target.tagName)) return;
+  if(e.key === 'm' || e.key === 'M') toggleMic();
+  else if(e.key === 's' || e.key === 'S') toggleSys();
+});
+
+async function lockScreen(){ try{ wakeLock = await navigator.wakeLock.request('screen'); }catch(e){} }
+function onVis(){ if(document.visibilityState === 'visible' && rec && rec.state === 'recording') lockScreen(); }
+
+function tick(){
+  const el = (Date.now() - t0) / 1000;
+  $('time').textContent = fmtT(el);
+  $('size').textContent = fmtMB(bytes);
+  $('barfill').style.width = Math.min(100, bytes / (HARD_STOP_MB * MB) * 100) + '%';
+  if(el > 10){
+    const proj = bytes / el * cfg.secs;
+    $('proj').textContent = fmtMB(proj);
+    $('proj').style.color = proj > HARD_STOP_MB * MB ? 'var(--danger)' : '';
+    if(el > 120 && proj > HARD_STOP_MB * MB)
+      msg(`At this rate the file reaches the ${cfg.cap} MB limit at about ${fmtT(HARD_STOP_MB * MB / (bytes / el))}. To record longer, stop and restart with a higher max file size, lower resolution/fps, or "Video / animation" content type.`);
+  }
+  if(el >= cfg.secs || bytes >= HARD_STOP_MB * MB) stop();
+}
+
+function stop(){
+  if(stopping) return;
+  stopping = true;
+  if(rec && rec.state !== 'inactive') rec.stop(); else finish();
+}
+
+/* ---- WebM remux ------------------------------------------------------------
+   MediaRecorder output has no Duration and no Cues (the seek index), so players
+   restart from 0 when you drag the timeline. This rebuilds the file with
+   Duration + SeekHead + Cues and proper cluster sizes. Video data is untouched. */
+const EID = {EBML:0x1A45DFA3, SEG:0x18538067, INFO:0x1549A966, TRACKS:0x1654AE6B, CLUSTER:0x1F43B675,
+             CUES:0x1C53BB6B, SEEKHEAD:0x114D9B74, TAGS:0x1254C367};
+function readVint(b, p, keepMarker){
+  if(p >= b.length) return null;
+  const first = b[p]; let len = 1, mask = 0x80;
+  while(len <= 8 && !(first & mask)){ len++; mask >>= 1; }
+  if(len > 8 || p + len > b.length) return null;
+  let val = keepMarker ? first : (first & (mask - 1));
+  let unknown = !keepMarker && (first & (mask - 1)) === mask - 1;
+  for(let i = 1; i < len; i++){ val = val * 256 + b[p + i]; if(!keepMarker && b[p + i] !== 0xFF) unknown = false; }
+  return {len, val, unknown};
+}
+const u8 = (...a) => Uint8Array.from(a);
+function cat(list){ let n = 0; for(const a of list) n += a.length; const o = new Uint8Array(n); let p = 0; for(const a of list){ o.set(a, p); p += a.length; } return o; }
+function numBytes(v, w){ const o = new Uint8Array(w); for(let i = w - 1; i >= 0; i--){ o[i] = v % 256; v = Math.floor(v / 256); } return o; }
+function idBytes(id){ const a = []; while(id > 0){ a.unshift(id % 256); id = Math.floor(id / 256); } return Uint8Array.from(a); }
+function mk(id, body){ return cat([idBytes(id), u8(0x01), numBytes(body.length, 7), body]); }   // element with 8-byte size
+function readUint(b, p, n){ let v = 0; for(let i = 0; i < n; i++) v = v * 256 + b[p + i]; return v; }
+
+// Walk the children of a cluster; returns where it ends, its timecode and every block in it.
+function walkCluster(b, ds, knownEnd){
+  const blocks = []; let tc = 0, q = ds;
+  const limit = knownEnd === null ? b.length : knownEnd;
+  while(q < limit){
+    const cid = readVint(b, q, true); if(!cid) break;
+    if(knownEnd === null && [EID.CLUSTER, EID.CUES, EID.TAGS, EID.SEEKHEAD, EID.INFO, EID.TRACKS].includes(cid.val)) break;
+    const cs = readVint(b, q + cid.len); if(!cs || cs.unknown) break;
+    const d = q + cid.len + cs.len, ne = d + cs.val; if(ne > b.length) break;
+    if(cid.val === 0xE7) tc = readUint(b, d, cs.val);
+    else if(cid.val === 0xA3){                       // SimpleBlock
+      const t = readVint(b, d); if(!t) break;
+      blocks.push({s: q, e: ne, track: t.val, rel: d + t.len, key: !!(b[d + t.len + 2] & 0x80)});
+    }else if(cid.val === 0xA0){                      // BlockGroup
+      let key = true, blk = null;
+      for(let r = d; r < ne;){
+        const a = readVint(b, r, true), s2 = readVint(b, r + a.len); if(!a || !s2) break;
+        const d2 = r + a.len + s2.len;
+        if(a.val === 0xA1){ const t = readVint(b, d2); blk = {track: t.val, rel: d2 + t.len}; }
+        if(a.val === 0xFB) key = false;              // ReferenceBlock => not a keyframe
+        r = d2 + s2.val;
+      }
+      if(blk) blocks.push({s: q, e: ne, track: blk.track, rel: blk.rel, key});
+    }
+    q = ne;
+  }
+  return {end: knownEnd === null ? q : Math.min(knownEnd, b.length), tc, blocks};
+}
+
+function remuxWebm(b, durMs){
+  let p = 0, id = readVint(b, 0, true);
+  if(!id || id.val !== EID.EBML) return null;
+  let sz = readVint(b, id.len); if(!sz) return null;
+  const ebmlEnd = id.len + sz.len + sz.val, ebml = b.subarray(0, ebmlEnd);
+  p = ebmlEnd;
+  id = readVint(b, p, true); if(!id || id.val !== EID.SEG) return null;
+  sz = readVint(b, p + id.len); if(!sz) return null;
+  p += id.len + sz.len;
+
+  let info = null, tracks = null; const srcClusters = [];
+  while(p < b.length){
+    id = readVint(b, p, true); if(!id) break;
+    sz = readVint(b, p + id.len); if(!sz) break;
+    const ds = p + id.len + sz.len;
+    if(id.val === EID.CLUSTER){
+      const c = walkCluster(b, ds, sz.unknown ? null : ds + sz.val);
+      srcClusters.push(c); p = c.end;
+    }else{
+      if(sz.unknown) break;
+      const end = ds + sz.val; if(end > b.length) break;
+      if(id.val === EID.INFO) info = b.subarray(ds, end);
+      else if(id.val === EID.TRACKS) tracks = b.subarray(ds, end);
+      p = end;
+    }
+  }
+  if(!info || !tracks || !srcClusters.length) return null;
+
+  // video track number
+  let vnum = 1;
+  for(let q = 0; q < tracks.length;){
+    const cid = readVint(tracks, q, true), cs = readVint(tracks, q + cid.len);
+    const ds = q + cid.len + cs.len, de = ds + cs.val;
+    if(cid.val === 0xAE){
+      let type = 0, num = 0;
+      for(let r = ds; r < de;){
+        const a = readVint(tracks, r, true), s = readVint(tracks, r + a.len), d = r + a.len + s.len;
+        if(a.val === 0x83) type = readUint(tracks, d, s.val);
+        if(a.val === 0xD7) num = readUint(tracks, d, s.val);
+        r = d + s.val;
+      }
+      if(type === 1){ vnum = num; break; }
+    }
+    q = de;
+  }
+
+  // Regroup blocks into clusters that each start on a video keyframe (so every seek point decodes cleanly)
+  const segs = []; let cur = null;
+  for(const c of srcClusters){
+    for(const k of c.blocks){
+      const abs = c.tc + (((b[k.rel] << 8) | b[k.rel + 1]) << 16 >> 16);
+      const vkey = k.track === vnum && k.key;
+      if(!cur || vkey || abs - cur.tc > 30000){
+        cur = {tc: abs, key: vkey, ranges: [], len: 0}; segs.push(cur);
+      }
+      const rel = abs - cur.tc;
+      b[k.rel] = (rel >> 8) & 0xFF; b[k.rel + 1] = rel & 0xFF;     // re-base block time to the new cluster
+      const last = cur.ranges[cur.ranges.length - 1];
+      if(last && last[1] === k.s) last[1] = k.e; else cur.ranges.push([k.s, k.e]);
+      cur.len += k.e - k.s;
+    }
+  }
+  if(!segs.length) return null;
+
+  // Info + Duration
+  let hasDur = false;
+  for(let q = 0; q < info.length;){
+    const cid = readVint(info, q, true), cs = readVint(info, q + cid.len);
+    if(cid.val === 0x4489) hasDur = true;
+    q += cid.len + cs.len + cs.val;
+  }
+  let infoBody = info;
+  if(!hasDur){
+    const d = new Uint8Array(8); new DataView(d.buffer).setFloat64(0, durMs, false);
+    infoBody = cat([info, u8(0x44, 0x89, 0x88), d]);
+  }
+  const infoEl = mk(EID.INFO, infoBody), tracksEl = mk(EID.TRACKS, tracks);
+
+  // layout (positions relative to the start of the Segment data)
+  const seekEntry = (eid, pos) => cat([u8(0x4D,0xBB,0x8E, 0x53,0xAB,0x84), idBytes(eid), u8(0x53,0xAC,0x84), numBytes(pos, 4)]);
+  const seekLen = 5 + 3 * 17;
+  const cueOf = (t, pos) => mk(0xBB, cat([mk(0xB3, numBytes(t, 4)), mk(0xB7, cat([mk(0xF7, u8(vnum)), mk(0xF1, numBytes(pos, 4))]))]));
+  const cueLen = cueOf(0, 0).length;
+  const nCues = segs.filter(s => s.key).length || segs.length;
+  const cuesLen = 12 + cueLen * nCues;
+  const infoPos = seekLen, tracksPos = infoPos + infoEl.length, cuesPos = tracksPos + tracksEl.length;
+  let pos = cuesPos + cuesLen;
+  const cueList = [], heads = [], anyKey = segs.some(s => s.key);
+  for(const s of segs){
+    const e7 = mk(0xE7, numBytes(s.tc, 5));
+    if(s.key || !anyKey) cueList.push(cueOf(s.tc, pos));
+    heads.push(cat([idBytes(EID.CLUSTER), u8(0x01), numBytes(e7.length + s.len, 7), e7]));
+    pos += 12 + e7.length + s.len;
+  }
+  const seekHead = cat([u8(0x11,0x4D,0x9B,0x74, 0x80 | 51), seekEntry(EID.INFO, infoPos), seekEntry(EID.TRACKS, tracksPos), seekEntry(EID.CUES, cuesPos)]);
+  const cuesEl = cat([idBytes(EID.CUES), u8(0x01), numBytes(cueLen * nCues, 7), ...cueList]);
+  const segHead = cat([idBytes(EID.SEG), u8(0x01), numBytes(pos, 7)]);
+
+  const parts = [ebml, segHead, seekHead, infoEl, tracksEl, cuesEl];
+  segs.forEach((s, i) => { parts.push(heads[i]); for(const r of s.ranges) parts.push(b.subarray(r[0], r[1])); });
+  return new Blob(parts, {type: 'video/webm'});
+}
+async function fixDuration(blob, seconds){
+  try{
+    if(blob.size > 850 * MB) return blob;                // too big to rebuild safely in browser memory
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    return remuxWebm(buf, seconds * 1000) || blob;
+  }catch(e){ return blob; }
+}
+
+async function finish(){
+  clearInterval(timer);
+  document.removeEventListener('visibilitychange', onVis);
+  streams.forEach(s => s.getTracks().forEach(t => t.stop())); streams = [];
+  if(ac){ try{ ac.close(); }catch(e){} ac = null; }
+  micGain = sysGain = null;
+  if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
+  window.onbeforeunload = null;
+
+  const secs = (Date.now() - t0) / 1000;
+  let blob = new Blob(chunks, {type: 'video/webm'});
+  chunks = [];
+  blob = await fixDuration(blob, secs);
+
+  if(lastUrl) URL.revokeObjectURL(lastUrl);
+  const url = lastUrl = URL.createObjectURL(blob);
+  const d = new Date(), pad = n => String(n).padStart(2,'0');
+  const name = `recording-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.webm`;
+  $('preview').src = url;
+  $('dl').href = url; $('dl').download = name;
+  $('final').textContent = `${name} · ${fmtMB(blob.size)} · ${fmtT(secs)}. Plays in Chrome, Edge or VLC.`;
+  $('result').hidden = false; $('live').hidden = true;
+  $('start').disabled = false; $('stop').disabled = true;
+  ['dur','cap','res','fps','hint','sys','mic'].forEach(id => $(id).disabled = false);
+  msg('Saved. Download it before closing this tab.', true);
+}
+
+$('start').addEventListener('click', start);
+$('stop').addEventListener('click', stop);
+</script>
+</body>
+</html>
